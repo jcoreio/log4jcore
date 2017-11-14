@@ -86,6 +86,10 @@ const defaultLogProvider: LogProvider = (loggerPath: string, level: number, ...a
 
 let _logProvider: LogProvider = defaultLogProvider
 
+export function setLogProvider(provider: LogProvider) {
+  _logProvider = provider
+}
+
 const loggersByPath: {[loggerPath: string]: Logger} = {}
 
 export function logger(loggerPath: string = ''): Logger {
