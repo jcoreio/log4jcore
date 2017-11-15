@@ -1,5 +1,5 @@
 {
-  "name": "jcore-logger",
+  "name": "log4jcore",
   "version": "0.0.0-development",
   "description": "logging",
   "main": "lib/index.js",
@@ -39,7 +39,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/jcoreio/jcore-logger.git"
+    "url": "https://github.com/jcoreio/log4jcore.git"
   },
   "keywords": [
     "es2015"
@@ -47,9 +47,9 @@
   "author": "Jason McLaurin",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/jcoreio/jcore-logger/issues"
+    "url": "https://github.com/jcoreio/log4jcore/issues"
   },
-  "homepage": "https://github.com/jcoreio/jcore-logger#readme",
+  "homepage": "https://github.com/jcoreio/log4jcore#readme",
   "devDependencies": {
     "@jedwards1211/eslint-config": "^1.0.0",
     "@jedwards1211/eslint-config-flow": "^1.0.0",
