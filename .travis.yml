@@ -5,14 +5,16 @@ cache:
 notifications:
   email: false
 node_js:
+  - '8'
   - '7'
   - '6'
-  - '4'
-before_script:
-  - npm prune
+install:
+  - yarn install --ignore-engines --check-files --frozen-lockfile
+script:
+  - yarn run prepublishOnly
 after_success:
   - npm run codecov
-  - npm run semantic-release
+  - npm run travis-deploy-once "npm run semantic-release"
 branches:
   except:
     - /^v\d+\.\d+\.\d+$/
