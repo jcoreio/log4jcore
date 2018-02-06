@@ -92,7 +92,7 @@ export function setLogProvider(provider: LogProvider) {
 
 const loggersByPath: {[loggerPath: string]: Logger} = {}
 
-export function logger(loggerPath: string = ''): Logger {
+export default function logger(loggerPath: string = ''): Logger {
   let logger = loggersByPath[loggerPath]
   if (!logger)
     logger = loggersByPath[loggerPath] = createLogger(loggerPath)
