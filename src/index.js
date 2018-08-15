@@ -4,7 +4,8 @@
  * Simple replacement for log4js that can run in the browser
  */
 
-import _ from 'lodash'
+import {compact, isFunction, isInteger, isString, once} from 'lodash'
+import moment from 'moment'
 
 export type Logger = {
   trace: (...args: Array<any>) => void,
@@ -13,6 +14,8 @@ export type Logger = {
   warn: (...args: Array<any>) => void,
   error: (...args: Array<any>) => void,
   fatal: (...args: Array<any>) => void,
+  logAtLevel: (level: number, ...args: Array<any>) => void,
+  levelEnabled: (level: number) => boolean,
 }
 
 export type LogProvider = (loggerPath: string, level: number, ...args: Array<any>) => void
@@ -24,9 +27,12 @@ export const LOG_LEVEL_WARN = 4
 export const LOG_LEVEL_ERROR = 5
 export const LOG_LEVEL_FATAL = 6
 
+const LOG_LEVEL_MIN = LOG_LEVEL_TRACE
+const LOG_LEVEL_MAX = LOG_LEVEL_FATAL
+
 const DEFAULT_LOG_LEVEL = LOG_LEVEL_INFO
 
-const PATH_SEPARATOR = '/'
+const PATH_SEPARATOR = '.'
 
 const logLevelToName = {
   [LOG_LEVEL_TRACE]: 'TRACE',
@@ -37,14 +43,33 @@ const logLevelToName = {
   [LOG_LEVEL_FATAL]: 'FATAL',
 }
 
-//const nameToLogLevel = _.invert(logLevelToName)
+//const nameToLogLevel = invert(logLevelToName)
 
 const configuredLogLevels: {[path: string]: number} = {}
+const envLogLevels: {[path: string]: number} = {}
+
+const logLevelAtPath = (path: string) => configuredLogLevels[path] || envLogLevels[path]
+
+const envVar = (varName: string) => (process && process.env) ? process.env[varName] : undefined // eslint-disable-line no-undef
+
+const calcEnvLogLevels = once(() => {
+  // walk log levels from least to most verbose, so that the most verbose setting wins if
+  // the user sets DEBUG=foo and TRACE=foo, foo will be set to TRACE
+  for (let logLevel = LOG_LEVEL_MAX; logLevel >= LOG_LEVEL_MIN; --logLevel) {
+    const envForLevel = envVar(logLevelToName[logLevel])
+    if (envForLevel && isString(envForLevel)) {
+      const targetsForLevel = compact(envForLevel.split(','))
+      targetsForLevel.forEach((target: string) => {
+        envLogLevels[target] = logLevel
+      })
+    }
+  }
+})
 
 let logLevelsCache: {[path: string]: number} = {}
 
 export function setLogLevel(path: string, level: number) {
-  if (!_.isInteger(level)) throw Error('log level must be an integer')
+  if (!isInteger(level)) throw Error('log level must be an integer')
   if (level < LOG_LEVEL_TRACE || level > LOG_LEVEL_FATAL) throw Error(`log level must be between ${LOG_LEVEL_TRACE} and ${LOG_LEVEL_FATAL}, inclusive`)
   if (level !== configuredLogLevels[path]) {
     configuredLogLevels[path] = level
@@ -54,12 +79,13 @@ export function setLogLevel(path: string, level: number) {
 }
 
 function calcLogLevel(path: string): number {
-  const levelAtExactPath: ?number = configuredLogLevels[path]
+  calcEnvLogLevels()
+  const levelAtExactPath: ?number = logLevelAtPath(path)
   if (levelAtExactPath != null) return levelAtExactPath
   const exactPathSplit = path.split(PATH_SEPARATOR)
   for (let compareLen = exactPathSplit.length - 1; compareLen >= 0; --compareLen) {
     const subPath = exactPathSplit.slice(0, compareLen).join(PATH_SEPARATOR)
-    const levelAtSubPath: ?number = configuredLogLevels[subPath]
+    const levelAtSubPath: ?number = logLevelAtPath(subPath)
     if (levelAtSubPath != null) return levelAtSubPath
   }
   return DEFAULT_LOG_LEVEL
@@ -73,14 +99,17 @@ function logLevel(path: string): number {
   return levelForPath
 }
 
+const hasDate = !envVar('LOG_NO_DATE')
+
 const defaultLogProvider: LogProvider = (loggerPath: string, level: number, ...args: Array<any>) => {
   if (level >= logLevel(loggerPath)) {
-    const isDeferredLog = args.length === 1 && _.isFunction(args[0])
+    const isDeferredLog = args.length === 1 && isFunction(args[0])
     const argsToLogger: Array<any> = isDeferredLog ? [args[0]()] : args
 
     /* eslint-disable no-console */
     const consoleLogFunc = (level >= LOG_LEVEL_ERROR) ? console.error : console.log
-    consoleLogFunc(`[${loggerPath}] ${logLevelToName[level]}`, ...argsToLogger)
+    const date = hasDate ? moment().format('YYYY-MM-DD HH:mm:ss') + ' ' : ''
+    consoleLogFunc(`[${date}${loggerPath}] ${logLevelToName[level]}`, ...argsToLogger)
   }
 }
 
@@ -100,13 +129,15 @@ export default function logger(loggerPath: string = ''): Logger {
 }
 
 function createLogger(loggerPath: string): Logger {
-  const log = (level: number, ...args: Array<any>) => _logProvider(loggerPath, level, ...args)
+  const logAtLevel = (level: number, ...args: Array<any>) => _logProvider(loggerPath, level, ...args)
   return {
-    trace: (...args: Array<any>) => log(LOG_LEVEL_TRACE, ...args),
-    debug: (...args: Array<any>) => log(LOG_LEVEL_DEBUG, ...args),
-    info: (...args: Array<any>) => log(LOG_LEVEL_INFO, ...args),
-    warn: (...args: Array<any>) => log(LOG_LEVEL_WARN, ...args),
-    error: (...args: Array<any>) => log(LOG_LEVEL_ERROR, ...args),
-    fatal: (...args: Array<any>) => log(LOG_LEVEL_FATAL, ...args),
+    trace: (...args: Array<any>) => logAtLevel(LOG_LEVEL_TRACE, ...args),
+    debug: (...args: Array<any>) => logAtLevel(LOG_LEVEL_DEBUG, ...args),
+    info: (...args: Array<any>) => logAtLevel(LOG_LEVEL_INFO, ...args),
+    warn: (...args: Array<any>) => logAtLevel(LOG_LEVEL_WARN, ...args),
+    error: (...args: Array<any>) => logAtLevel(LOG_LEVEL_ERROR, ...args),
+    fatal: (...args: Array<any>) => logAtLevel(LOG_LEVEL_FATAL, ...args),
+    logAtLevel,
+    levelEnabled: (level: number) => level >= logLevel(loggerPath),
   }
 }
