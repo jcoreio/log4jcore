@@ -20,12 +20,26 @@ export type Logger = {
 
 export type LogProvider = (loggerPath: string, level: number, ...args: Array<any>) => void
 
-export const LOG_LEVEL_TRACE = 1
-export const LOG_LEVEL_DEBUG = 2
-export const LOG_LEVEL_INFO = 3
-export const LOG_LEVEL_WARN = 4
-export const LOG_LEVEL_ERROR = 5
-export const LOG_LEVEL_FATAL = 6
+const LOG_LEVEL_TRACE = 1
+const LOG_LEVEL_DEBUG = 2
+const LOG_LEVEL_INFO = 3
+const LOG_LEVEL_WARN = 4
+const LOG_LEVEL_ERROR = 5
+const LOG_LEVEL_FATAL = 6
+
+// Do exports in a way that allows logger = require('log4jcore') instead of require('log4jcore').default
+
+/* eslint-disable no-undef */
+logger.setLogProvider = setLogProvider
+logger.setLogLevel = setLogLevel
+logger.LOG_LEVEL_TRACE = LOG_LEVEL_TRACE
+logger.LOG_LEVEL_DEBUG = LOG_LEVEL_DEBUG
+logger.LOG_LEVEL_INFO = LOG_LEVEL_INFO
+logger.LOG_LEVEL_WARN = LOG_LEVEL_WARN
+logger.LOG_LEVEL_ERROR = LOG_LEVEL_ERROR
+logger.LOG_LEVEL_FATAL = LOG_LEVEL_FATAL
+
+export default logger
 
 const LOG_LEVEL_MIN = LOG_LEVEL_TRACE
 const LOG_LEVEL_MAX = LOG_LEVEL_FATAL
@@ -68,7 +82,7 @@ const calcEnvLogLevels = once(() => {
 
 let logLevelsCache: {[path: string]: number} = {}
 
-export function setLogLevel(path: string, level: number) {
+function setLogLevel(path: string, level: number) {
   if (!isInteger(level)) throw Error('log level must be an integer')
   if (level < LOG_LEVEL_TRACE || level > LOG_LEVEL_FATAL) throw Error(`log level must be between ${LOG_LEVEL_TRACE} and ${LOG_LEVEL_FATAL}, inclusive`)
   if (level !== configuredLogLevels[path]) {
@@ -115,13 +129,13 @@ const defaultLogProvider: LogProvider = (loggerPath: string, level: number, ...a
 
 let _logProvider: LogProvider = defaultLogProvider
 
-export function setLogProvider(provider: LogProvider) {
+function setLogProvider(provider: LogProvider) {
   _logProvider = provider
 }
 
 const loggersByPath: {[loggerPath: string]: Logger} = {}
 
-export default function logger(loggerPath: string = ''): Logger {
+function logger(loggerPath: string = ''): Logger {
   let logger = loggersByPath[loggerPath]
   if (!logger)
     logger = loggersByPath[loggerPath] = createLogger(loggerPath)
