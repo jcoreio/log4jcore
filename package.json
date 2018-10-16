@@ -3,6 +3,12 @@
   "version": "0.0.0-development",
   "description": "logging",
   "main": "lib/index.js",
+  "files": [
+    "lib",
+    "LICENSE.md",
+    "README.md",
+    "yarn.lock"
+  ],
   "scripts": {
     "lint": "eslint src test --cache",
     "lint:fix": "eslint --fix src test --cache",
@@ -60,7 +66,7 @@
     "babel-core": "^6.23.1",
     "babel-eslint": "^7.1.1",
     "babel-plugin-istanbul": "^4.0.0",
-    "babel-plugin-transform-es2015-modules-simple-commonjs": "^0.3.0",
+    "babel-plugin-transform-es2015-modules-commonjs": "^6.26.2",
     "babel-preset-es2015": "^6.22.0",
     "babel-preset-flow": "^6.23.0",
     "babel-preset-stage-1": "^6.22.0",
