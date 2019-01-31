@@ -20,6 +20,8 @@ export type Logger = {
 
 export type LogProvider = (loggerPath: string, level: number, ...args: Array<any>) => void
 
+export type LogFunctionProvider = (level: number) => Function
+
 export const LOG_LEVEL_TRACE = 1
 export const LOG_LEVEL_DEBUG = 2
 export const LOG_LEVEL_INFO = 3
@@ -101,20 +103,32 @@ function logLevel(path: string): number {
 
 const hasDate = !envVar('LOG_NO_DATE')
 
-const defaultLogProvider: LogProvider = (loggerPath: string, level: number, ...args: Array<any>) => {
-  if (level >= logLevel(loggerPath)) {
-    const isDeferredLog = args.length === 1 && isFunction(args[0])
-    const argsToLogger: Array<any> = isDeferredLog ? [args[0]()] : args
+const defaultLogFunctionProvider: LogFunctionProvider = (level: number) =>
+  level >= LOG_LEVEL_ERROR ? console.error : console.log // eslint-disable-line no-console
 
-    /* eslint-disable no-console */
-    const consoleLogFunc = (level >= LOG_LEVEL_ERROR) ? console.error : console.log
-    const date = hasDate ? moment().format('YYYY-MM-DD HH:mm:ss') + ' ' : ''
-    consoleLogFunc(`[${date}${loggerPath}] ${logLevelToName[level]}`, ...argsToLogger)
-  }
+let _logFunctionProvider: LogFunctionProvider = defaultLogFunctionProvider
+
+/**
+ * Simple hook to override the logging function. For example, to always log to console.error,
+ * call setLogFunctionProvider(() => console.error)
+ * @param provider function that returns the log function based on the message's log level
+ */
+export function setLogFunctionProvider(provider: LogFunctionProvider) {
+  _logFunctionProvider = provider
+}
+
+const defaultLogProvider: LogProvider = (loggerPath: string, level: number, ...args: Array<any>) => {
+  const logFunc: Function = _logFunctionProvider(level)
+  const date = hasDate ? moment().format('YYYY-MM-DD HH:mm:ss') + ' ' : ''
+  logFunc(`[${date}${loggerPath}] ${logLevelToName[level]}`, ...args)
 }
 
 let _logProvider: LogProvider = defaultLogProvider
 
+/**
+ * Hook to provide a complete replacement for the log provider.
+ * @param provider
+ */
 export function setLogProvider(provider: LogProvider) {
   _logProvider = provider
 }
@@ -131,7 +145,13 @@ function logger(loggerPath: string = ''): Logger {
 export default logger
 
 function createLogger(loggerPath: string): Logger {
-  const logAtLevel = (level: number, ...args: Array<any>) => _logProvider(loggerPath, level, ...args)
+  const logAtLevel = (level: number, ...args: Array<any>) => {
+    if (level >= logLevel(loggerPath)) {
+      const isDeferredLog = args.length === 1 && isFunction(args[0])
+      const argsToLogger: Array<any> = isDeferredLog ? [args[0]()] : args
+      _logProvider(loggerPath, level, ...argsToLogger)
+    }
+  }
   return {
     trace: (...args: Array<any>) => logAtLevel(LOG_LEVEL_TRACE, ...args),
     debug: (...args: Array<any>) => logAtLevel(LOG_LEVEL_DEBUG, ...args),
