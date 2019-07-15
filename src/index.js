@@ -147,8 +147,14 @@ export default logger
 function createLogger(loggerPath: string): Logger {
   const logAtLevel = (level: number, ...args: Array<any>) => {
     if (level >= logLevel(loggerPath)) {
-      const isDeferredLog = args.length === 1 && isFunction(args[0])
-      const argsToLogger: Array<any> = isDeferredLog ? [args[0]()] : args
+      let argsToLogger: Array<any> = args
+      if (args.length === 1 && isFunction(args[0])) {
+        // A single function was passed. Execute that function and log the result.
+        // This allows debug text to only be calculated when the relevant debug level is
+        // enabled, e.g. log.trace(() => JSON.stringify(data))
+        const resolvedArgs = args[0]()
+        argsToLogger = Array.isArray(resolvedArgs) ? resolvedArgs : [ resolvedArgs ]
+      }
       _logProvider(loggerPath, level, ...argsToLogger)
     }
   }
