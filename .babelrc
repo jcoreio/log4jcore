@@ -1,9 +1,0 @@
-{
-  "presets": ["es2015", "stage-1", "flow"],
-  "plugins": ["transform-es2015-modules-commonjs"],
-  "env": {
-    "test": {
-      "plugins": ["istanbul"]
-    }
-  }
-}

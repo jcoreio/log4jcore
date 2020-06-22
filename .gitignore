@@ -1,5 +1,8 @@
-coverage
+/coverage
+.env
+.eslintcache
+.idea
+/lib
 .nyc_output
 node_modules
-lib
-.eslintcache
+yarn-error.log

@@ -1,0 +1,40 @@
+export type Logger = {
+  trace: (...args: Array<any>) => void,
+  debug: (...args: Array<any>) => void,
+  info: (...args: Array<any>) => void,
+  warn: (...args: Array<any>) => void,
+  error: (...args: Array<any>) => void,
+  fatal: (...args: Array<any>) => void,
+  logAtLevel: (level: number, ...args: Array<any>) => void,
+  levelEnabled: (level: number) => boolean,
+}
+
+export type LogProvider = (loggerPath: string, level: number, ...args: Array<any>) => void
+
+export type LogFunctionProvider = (level: number) => Function
+
+export const LOG_LEVEL_TRACE = 1
+export const LOG_LEVEL_DEBUG = 2
+export const LOG_LEVEL_INFO = 3
+export const LOG_LEVEL_WARN = 4
+export const LOG_LEVEL_ERROR = 5
+export const LOG_LEVEL_FATAL = 6
+
+declare export function setLogLevel(path: string, level: number): void
+
+/**
+ * Simple hook to override the logging function. For example, to always log to console.error,
+ * call setLogFunctionProvider(() => console.error)
+ * @param provider function that returns the log function based on the message's log level
+ */
+declare export function setLogFunctionProvider(provider: LogFunctionProvider): void
+
+/**
+ * Hook to provide a complete replacement for the log provider.
+ * @param provider
+ */
+declare export function setLogProvider(provider: LogProvider): void
+
+declare export function logger(loggerPath: string): Logger
+
+declare export default logger
