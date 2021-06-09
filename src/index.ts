@@ -88,12 +88,13 @@ function calcEnvLogLevels(): void {
 
 let logLevelsCache: { [path: string]: Level } = {}
 
+export function resetLogLevels(): void {
+  logLevelsCache = {}
+  for (const path in configuredLogLevels) delete configuredLogLevels[path]
+}
+
 export function setLogLevel(path: string, level: Level): void {
   assertValidLogLevel(level)
-  if (level < LOG_LEVEL_TRACE || level > LOG_LEVEL_FATAL)
-    throw Error(
-      `log level must be between ${LOG_LEVEL_TRACE} and ${LOG_LEVEL_FATAL}, inclusive`
-    )
   if (level !== configuredLogLevels[path]) {
     configuredLogLevels[path] = level
     // Bust the cache
@@ -128,7 +129,7 @@ function logLevel(path: string): Level {
 
 const hasDate = !envVar('LOG_NO_DATE')
 
-const defaultLogFunctionProvider: LogFunctionProvider = (level: Level) =>
+export const defaultLogFunctionProvider: LogFunctionProvider = (level: Level) =>
   level >= LOG_LEVEL_ERROR ? console.error : console.log // eslint-disable-line no-console
 
 let _logFunctionProvider: LogFunctionProvider = defaultLogFunctionProvider
@@ -151,7 +152,7 @@ function formatDate(d: Date): string {
   )} ${part(d.getHours())}:${part(d.getMinutes())}:${part(d.getSeconds())}`
 }
 
-const defaultLogProvider: LogProvider = (
+export const defaultLogProvider: LogProvider = (
   loggerPath: string,
   level: Level,
   ...args: Array<any>
