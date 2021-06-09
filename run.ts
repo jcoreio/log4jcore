@@ -105,18 +105,15 @@ task('lint:watch', 'node_modules', () =>
 ).description('run eslint in watch mode')
 
 function testRecipe(options: {
-  unit?: boolean
-  integration?: boolean
   coverage?: boolean
   watch?: boolean
   debug?: boolean
 }): (rule: { args: Array<string> }) => Promise<void> {
-  const { unit, integration, coverage, watch, debug } = options
+  const { coverage, watch, debug } = options
   const args = ['./test/configure.js']
   if (watch) args.push('./test/clearConsole.js')
 
-  if (unit) args.push('./test/unit/**/*.ts')
-  if (integration) args.push('./test/integration/**/*.ts')
+  args.push('./test/**/*.ts')
   if (watch) args.push('--watch')
   if (debug) args.push('--inspect-brk')
   let command = 'mocha'
@@ -143,18 +140,9 @@ for (const coverage of [false, true]) {
       task(
         `${prefix}${suffix}`,
         ['node_modules'],
-        testRecipe({ unit: true, coverage, watch, debug })
+        testRecipe({ coverage, watch, debug })
       ).description(
-        `run unit tests${coverage ? ' with code coverage' : ''}${
-          watch ? ' in watch mode' : ''
-        }${debug ? ' in debug mode' : ''}`
-      )
-      task(
-        `${prefix}:all${suffix}`,
-        ['node_modules'],
-        testRecipe({ unit: true, integration: true, coverage, watch, debug })
-      ).description(
-        `run all tests${coverage ? ' with code coverage' : ''}${
+        `run tests${coverage ? ' with code coverage' : ''}${
           watch ? ' in watch mode' : ''
         }${debug ? ' in debug mode' : ''}`
       )
