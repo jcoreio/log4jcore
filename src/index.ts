@@ -2,24 +2,26 @@ import { compact, isFunction, isInteger, isString, once } from 'lodash'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-export type Logger = {
-  trace: (...args: Array<any>) => void
-  debug: (...args: Array<any>) => void
-  info: (...args: Array<any>) => void
-  warn: (...args: Array<any>) => void
-  error: (...args: Array<any>) => void
-  fatal: (...args: Array<any>) => void
-  logAtLevel: (level: number, ...args: Array<any>) => void
-  levelEnabled: (level: number) => boolean
+export type Level = 1 | 2 | 3 | 4 | 5 | 6
+
+export interface Logger {
+  trace(...args: Array<any>): void
+  debug(...args: Array<any>): void
+  info(...args: Array<any>): void
+  warn(...args: Array<any>): void
+  error(...args: Array<any>): void
+  fatal(...args: Array<any>): void
+  logAtLevel(level: Level, ...args: Array<any>): void
+  levelEnabled(level: Level): boolean
 }
 
 export type LogProvider = (
   loggerPath: string,
-  level: number,
+  level: Level,
   ...args: Array<any>
 ) => void
 
-export type LogFunctionProvider = (level: number) => Function
+export type LogFunctionProvider = (level: Level) => Function
 
 export const LOG_LEVEL_TRACE = 1
 export const LOG_LEVEL_DEBUG = 2
@@ -46,10 +48,10 @@ const logLevelToName = {
 
 //const nameToLogLevel = invert(logLevelToName)
 
-const configuredLogLevels: { [path: string]: number } = {}
-const envLogLevels: { [path: string]: number } = {}
+const configuredLogLevels: { [path: string]: Level } = {}
+const envLogLevels: { [path: string]: Level } = {}
 
-const logLevelAtPath = (path: string): number | undefined =>
+const logLevelAtPath = (path: string): Level | undefined =>
   configuredLogLevels[path] || envLogLevels[path]
 
 const envVar = (varName: string): string | undefined =>
@@ -63,15 +65,15 @@ const calcEnvLogLevels = once(() => {
     if (envForLevel && isString(envForLevel)) {
       const targetsForLevel = compact(envForLevel.split(','))
       targetsForLevel.forEach((target: string) => {
-        envLogLevels[target] = logLevel
+        envLogLevels[target] = logLevel as Level
       })
     }
   }
 })
 
-let logLevelsCache: { [path: string]: number } = {}
+let logLevelsCache: { [path: string]: Level } = {}
 
-export function setLogLevel(path: string, level: number): void {
+export function setLogLevel(path: string, level: Level): void {
   if (!isInteger(level)) throw Error('log level must be an integer')
   if (level < LOG_LEVEL_TRACE || level > LOG_LEVEL_FATAL)
     throw Error(
@@ -84,9 +86,9 @@ export function setLogLevel(path: string, level: number): void {
   }
 }
 
-function calcLogLevel(path: string): number {
+function calcLogLevel(path: string): Level {
   calcEnvLogLevels()
-  const levelAtExactPath: number | undefined = logLevelAtPath(path)
+  const levelAtExactPath: Level | undefined = logLevelAtPath(path)
   if (levelAtExactPath != null) return levelAtExactPath
   const exactPathSplit = path.split(PATH_SEPARATOR)
   for (
@@ -95,14 +97,14 @@ function calcLogLevel(path: string): number {
     --compareLen
   ) {
     const subPath = exactPathSplit.slice(0, compareLen).join(PATH_SEPARATOR)
-    const levelAtSubPath: number | undefined = logLevelAtPath(subPath)
+    const levelAtSubPath: Level | undefined = logLevelAtPath(subPath)
     if (levelAtSubPath != null) return levelAtSubPath
   }
   return DEFAULT_LOG_LEVEL
 }
 
-function logLevel(path: string): number {
-  let levelForPath: number | undefined = logLevelsCache[path]
+function logLevel(path: string): Level {
+  let levelForPath: Level | undefined = logLevelsCache[path]
   if (levelForPath == null) {
     logLevelsCache[path] = levelForPath = calcLogLevel(path)
   }
@@ -111,7 +113,7 @@ function logLevel(path: string): number {
 
 const hasDate = !envVar('LOG_NO_DATE')
 
-const defaultLogFunctionProvider: LogFunctionProvider = (level: number) =>
+const defaultLogFunctionProvider: LogFunctionProvider = (level: Level) =>
   level >= LOG_LEVEL_ERROR ? console.error : console.log // eslint-disable-line no-console
 
 let _logFunctionProvider: LogFunctionProvider = defaultLogFunctionProvider
@@ -136,7 +138,7 @@ function formatDate(d: Date): string {
 
 const defaultLogProvider: LogProvider = (
   loggerPath: string,
-  level: number,
+  level: Level,
   ...args: Array<any>
 ) => {
   const logFunc: Function = _logFunctionProvider(level)
@@ -157,7 +159,7 @@ export function setLogProvider(provider: LogProvider): void {
 const loggersByPath: { [loggerPath: string]: Logger } = {}
 
 function createLogger(loggerPath: string): Logger {
-  const logAtLevel = (level: number, ...args: Array<any>): void => {
+  const logAtLevel = (level: Level, ...args: Array<any>): void => {
     if (level >= logLevel(loggerPath)) {
       let argsToLogger: Array<any> = args
       if (args.length === 1 && isFunction(args[0])) {
