@@ -1,5 +1,4 @@
 import { compact, isFunction, isInteger, isString, once } from 'lodash'
-import moment from 'moment'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -126,13 +125,22 @@ export function setLogFunctionProvider(provider: LogFunctionProvider): void {
   _logFunctionProvider = provider
 }
 
+function formatDate(d: Date): string {
+  function part(n: number, width = 2): string {
+    return String(n).padStart(width, '0')
+  }
+  return `${part(d.getFullYear(), 4)}-${part(d.getMonth() + 1)}-${part(
+    d.getDate()
+  )} ${part(d.getHours())}:${part(d.getMinutes())}:${part(d.getSeconds())}`
+}
+
 const defaultLogProvider: LogProvider = (
   loggerPath: string,
   level: number,
   ...args: Array<any>
 ) => {
   const logFunc: Function = _logFunctionProvider(level)
-  const date = hasDate ? moment().format('YYYY-MM-DD HH:mm:ss') + ' ' : ''
+  const date = hasDate ? formatDate(new Date()) + ' ' : ''
   logFunc(`[${date}${loggerPath}] ${(logLevelToName as any)[level]}`, ...args)
 }
 
