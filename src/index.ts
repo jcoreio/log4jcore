@@ -54,7 +54,9 @@ const logLevelAtPath = (path: string): number | undefined =>
   configuredLogLevels[path] || envLogLevels[path]
 
 const envVar = (varName: string): string | undefined =>
-  process && process.env ? process.env[varName] : undefined // eslint-disable-line no-undef
+  typeof process !== 'undefined' && process.env
+    ? process.env[varName]
+    : undefined // eslint-disable-line no-undef
 
 const calcEnvLogLevels = once(() => {
   // walk log levels from least to most verbose, so that the most verbose setting wins if
