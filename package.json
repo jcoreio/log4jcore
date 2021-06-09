@@ -80,7 +80,6 @@
     "@jcoreio/commitlint-config": "^1.1.1",
     "@types/chai": "^4.2.6",
     "@types/fs-extra": "^8.0.1",
-    "@types/lodash": "^4.14.155",
     "@types/mocha": "^5.2.7",
     "@types/touch": "^3.1.1",
     "@typescript-eslint/eslint-plugin": "^2.7.0",
@@ -114,7 +113,6 @@
     "typescript": "^3.7.2"
   },
   "dependencies": {
-    "lodash": "^4.17.15",
     "moment": "^2.27.0"
   },
   "renovate": {

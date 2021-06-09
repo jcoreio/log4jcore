@@ -1,4 +1,3 @@
-import { compact, isFunction, isInteger, isString, once } from 'lodash'
 import moment from 'moment'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -47,7 +46,19 @@ const logLevelToName = {
   [LOG_LEVEL_FATAL]: 'FATAL',
 }
 
-//const nameToLogLevel = invert(logLevelToName)
+function assertValidLogLevel(level: Level): void {
+  switch (level) {
+    case LOG_LEVEL_TRACE:
+    case LOG_LEVEL_DEBUG:
+    case LOG_LEVEL_INFO:
+    case LOG_LEVEL_WARN:
+    case LOG_LEVEL_ERROR:
+    case LOG_LEVEL_FATAL:
+      return
+    default:
+      throw new Error(`invalid log level: ${level}`)
+  }
+}
 
 const configuredLogLevels: { [path: string]: Level } = {}
 const envLogLevels: { [path: string]: Level } = {}
@@ -58,24 +69,27 @@ const logLevelAtPath = (path: string): Level | undefined =>
 const envVar = (varName: string): string | undefined =>
   process && process.env ? process.env[varName] : undefined // eslint-disable-line no-undef
 
-const calcEnvLogLevels = once(() => {
+let calcedEnvLogLevels = false
+function calcEnvLogLevels(): void {
+  if (calcedEnvLogLevels) return
   // walk log levels from least to most verbose, so that the most verbose setting wins if
   // the user sets DEBUG=foo and TRACE=foo, foo will be set to TRACE
   for (let logLevel = LOG_LEVEL_MAX; logLevel >= LOG_LEVEL_MIN; --logLevel) {
     const envForLevel = envVar((logLevelToName as any)[logLevel])
-    if (envForLevel && isString(envForLevel)) {
-      const targetsForLevel = compact(envForLevel.split(','))
+    if (envForLevel && typeof envForLevel === 'string') {
+      const targetsForLevel = envForLevel.split(',').filter(Boolean)
       targetsForLevel.forEach((target: string) => {
         envLogLevels[target] = logLevel as Level
       })
     }
   }
-})
+  calcedEnvLogLevels = true
+}
 
 let logLevelsCache: { [path: string]: Level } = {}
 
 export function setLogLevel(path: string, level: Level): void {
-  if (!isInteger(level)) throw Error('log level must be an integer')
+  assertValidLogLevel(level)
   if (level < LOG_LEVEL_TRACE || level > LOG_LEVEL_FATAL)
     throw Error(
       `log level must be between ${LOG_LEVEL_TRACE} and ${LOG_LEVEL_FATAL}, inclusive`
@@ -154,7 +168,7 @@ function createLogger(loggerPath: string): Logger {
   const logAtLevel = (level: Level, ...args: Array<any>): void => {
     if (level >= logLevel(loggerPath)) {
       let argsToLogger: Array<any> = args
-      if (args.length === 1 && isFunction(args[0])) {
+      if (args.length === 1 && typeof args[0] === 'function') {
         // A single function was passed. Execute that function and log the result.
         // This allows debug text to only be calculated when the relevant debug level is
         // enabled, e.g. log.trace(() => JSON.stringify(data))
