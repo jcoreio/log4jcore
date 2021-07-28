@@ -1,3 +1,5 @@
+// @flow
+
 export type Logger = {
   trace: (...args: Array<any>) => void,
   debug: (...args: Array<any>) => void,
