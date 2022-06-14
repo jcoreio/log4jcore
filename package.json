@@ -113,7 +113,7 @@
     "promake": "^3.1.2",
     "promisify-child-process": "^3.1.1",
     "rimraf": "^2.6.0",
-    "semantic-release": "^15.1.4",
+    "semantic-release": "^19.0.3",
     "semver": "^6.3.0",
     "sinon": "^11.1.1",
     "touch": "^3.1.0",
