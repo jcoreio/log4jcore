@@ -17,8 +17,8 @@ const log = logger('MyClass')
 
 log.info('starting application')
 
-// Multiple arguments are supported, like with console.log. 
-// One benefit of this approach is that arguments are not 
+// Multiple arguments are supported, like with console.log.
+// One benefit of this approach is that arguments are not
 // stringified unless the log level requires the message to be
 // logged.
 log.info('ip address:', process.env.IP_ADDRESS)
@@ -31,9 +31,10 @@ log.debug(() => `hostname: ${process.env.HOSTNAME}`)
 ### Configuring Log Levels
 
 Log levels are set to `info` by default. To change the log level
-for a logger, pass in an environment variable like `DEBUG=MyClass`. 
+for a logger, pass in an environment variable like `DEBUG=MyClass`.
 
 Valid environment variable names are:
+
 - `TRACE`
 - `DEBUG`
 - `INFO`
@@ -51,8 +52,32 @@ severity is `WRAN` or lower, and calls `console.error` if the message severity
 is `ERROR` or higher.
 
 `setLogFunctionProvider` allows you to override this and replace the log writer
-with a different one. This can be useful if you want to log to a file or log to 
+with a different one. This can be useful if you want to log to a file or log to
 an external logging API.
+
+You can also pass custom providers to `createLogger`:
+
+```ts
+import { createLogger, createDefaultLogProvider } from 'log4jcore'
+import fs from 'fs'
+import memoryLogProvider from 'log4jcore/memoryLogProvider'
+import writableLogFunction from 'log4jcore/writableLogFunction'
+
+const downstream = createLogger({ loggerPath: 'downstream' })
+const memLog = memoryLogProvider()
+const log = createLogger({
+  loggerPath: 'test',
+  logProviders: [
+    downstream.inputLogProvider,
+    memLog,
+    createDefaultLogProvider(
+      writableLogFunction(fs.createWriteStream('out.log'))
+    ),
+  ],
+})
+
+// later, you can inspect memLog.messages
+```
 
 #### Logging to a file using `log4jcore-file-appender`:
 

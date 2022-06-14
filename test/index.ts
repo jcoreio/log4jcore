@@ -1,6 +1,7 @@
 import { describe, it } from 'mocha'
 import { expect } from 'chai'
 import { spawn } from 'child_process'
+import { pick } from 'lodash/fp'
 import Path from 'path'
 import emitted from 'p-event'
 import {
@@ -18,8 +19,13 @@ import {
   LOG_LEVEL_ERROR,
   LOG_LEVEL_FATAL,
   Level,
+  createLogger,
+  createDefaultLogProvider,
 } from '../src'
 import sinon from 'sinon'
+import memoryLogProvider from '../src/memoryLogProvider'
+import writableLogFunction from '../src/writableLogFunction'
+import MemoryWritableStream from './MemoryWritableStream'
 
 const levels: Level[] = [
   LOG_LEVEL_TRACE,
@@ -141,6 +147,71 @@ describe('log levels', () => {
     expect(logProvider.args).to.deep.equal([
       ['foo.bar', LOG_LEVEL_DEBUG, 'test4'],
     ])
+  })
+})
+describe(`memoryLogProvider`, function() {
+  it(`works`, function() {
+    const provider1 = memoryLogProvider()
+    const provider2 = memoryLogProvider()
+    const log = createLogger({
+      loggerPath: 'test',
+      logProviders: [provider1, provider2],
+    })
+    log.info('blah')
+    log.error({ message: 'test' })
+    expect(
+      provider1.messages.map(pick(['loggerPath', 'level', 'args']))
+    ).to.deep.equal([
+      { loggerPath: 'test', level: LOG_LEVEL_INFO, args: ['blah'] },
+      {
+        loggerPath: 'test',
+        level: LOG_LEVEL_ERROR,
+        args: [{ message: 'test' }],
+      },
+    ])
+    expect(
+      provider2.messages.map(pick(['loggerPath', 'level', 'args']))
+    ).to.deep.equal([
+      { loggerPath: 'test', level: LOG_LEVEL_INFO, args: ['blah'] },
+      {
+        loggerPath: 'test',
+        level: LOG_LEVEL_ERROR,
+        args: [{ message: 'test' }],
+      },
+    ])
+  })
+})
+describe(`inputLogProvider`, function() {
+  it(`can be passed to another logger`, function() {
+    const provider = memoryLogProvider()
+    const downstream = createLogger({
+      loggerPath: 'downstream',
+      logProviders: [provider],
+    })
+    const upstream = createLogger({
+      loggerPath: 'upstream',
+      logProviders: [downstream.inputLogProvider],
+    })
+    upstream.info('blah')
+    expect(
+      provider.messages.map(pick(['loggerPath', 'level', 'args']))
+    ).to.deep.equal([
+      { loggerPath: 'downstream', level: LOG_LEVEL_INFO, args: ['blah'] },
+    ])
+  })
+})
+describe(`writableLogFunction`, function() {
+  it(`works`, function() {
+    const writable = new MemoryWritableStream()
+    const log = createLogger({
+      loggerPath: 'test',
+      logProviders: [createDefaultLogProvider(writableLogFunction(writable))],
+    })
+    log.info('blah')
+    log.error({ message: 'test' })
+    expect(writable.toString()).to.match(
+      /^\[[-0-9: ]+test\] INFO blah\n\[[-0-9: ]+test\] ERROR \{ message: 'test' \}\n$/
+    )
   })
 })
 it(`sets log levels from env vars`, async function() {

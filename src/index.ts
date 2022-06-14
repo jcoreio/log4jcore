@@ -11,6 +11,7 @@ export interface Logger {
   fatal(...args: Array<any>): void
   logAtLevel(level: Level, ...args: Array<any>): void
   levelEnabled(level: Level): boolean
+  inputLogProvider: LogProvider
 }
 
 export type LogProvider = (
@@ -35,7 +36,14 @@ const DEFAULT_LOG_LEVEL = LOG_LEVEL_INFO
 
 const PATH_SEPARATOR = '.'
 
-const logLevelToName = {
+export const logLevelToName: {
+  1: 'TRACE'
+  2: 'DEBUG'
+  3: 'INFO'
+  4: 'WARN'
+  5: 'ERROR'
+  6: 'FATAL'
+} = {
   [LOG_LEVEL_TRACE]: 'TRACE',
   [LOG_LEVEL_DEBUG]: 'DEBUG',
   [LOG_LEVEL_INFO]: 'INFO',
@@ -152,14 +160,24 @@ function formatDate(d: Date): string {
   )} ${part(d.getHours())}:${part(d.getMinutes())}:${part(d.getSeconds())}`
 }
 
+function defaultLogFormat(loggerPath: string, level: Level): string {
+  const date = hasDate ? formatDate(new Date()) + ' ' : ''
+  return `[${date}${loggerPath}] ${(logLevelToName as any)[level]}`
+}
+
+export function createDefaultLogProvider(logFunc: Function): LogProvider {
+  return (loggerPath: string, level: Level, ...args: Array<any>): void => {
+    logFunc(defaultLogFormat(loggerPath, level), ...args)
+  }
+}
+
 export const defaultLogProvider: LogProvider = (
   loggerPath: string,
   level: Level,
   ...args: Array<any>
 ) => {
   const logFunc: Function = _logFunctionProvider(level)
-  const date = hasDate ? formatDate(new Date()) + ' ' : ''
-  logFunc(`[${date}${loggerPath}] ${(logLevelToName as any)[level]}`, ...args)
+  logFunc(defaultLogFormat(loggerPath, level), ...args)
 }
 
 let _logProvider: LogProvider = defaultLogProvider
@@ -174,9 +192,17 @@ export function setLogProvider(provider: LogProvider): void {
 
 const loggersByPath: { [loggerPath: string]: Logger } = {}
 
-function createLogger(loggerPath: string): Logger {
-  const logAtLevel = (level: Level, ...args: Array<any>): void => {
-    if (level >= logLevel(loggerPath)) {
+class LoggerImpl implements Logger {
+  loggerPath: string
+  _logProviders: LogProvider[] | undefined
+
+  constructor({ loggerPath, logProviders }: CreateLoggerOptions) {
+    this.loggerPath = loggerPath
+    this._logProviders = logProviders
+  }
+
+  logAtLevel = (level: Level, ...args: Array<any>): void => {
+    if (level >= logLevel(this.loggerPath)) {
       let argsToLogger: Array<any> = args
       if (args.length === 1 && typeof args[0] === 'function') {
         // A single function was passed. Execute that function and log the result.
@@ -187,24 +213,53 @@ function createLogger(loggerPath: string): Logger {
           ? resolvedArgs
           : [resolvedArgs]
       }
-      _logProvider(loggerPath, level, ...argsToLogger)
+      for (const provider of this._logProviders || [_logProvider]) {
+        provider(this.loggerPath, level, ...argsToLogger)
+      }
     }
   }
-  return {
-    trace: (...args: Array<any>): void => logAtLevel(LOG_LEVEL_TRACE, ...args),
-    debug: (...args: Array<any>): void => logAtLevel(LOG_LEVEL_DEBUG, ...args),
-    info: (...args: Array<any>): void => logAtLevel(LOG_LEVEL_INFO, ...args),
-    warn: (...args: Array<any>): void => logAtLevel(LOG_LEVEL_WARN, ...args),
-    error: (...args: Array<any>): void => logAtLevel(LOG_LEVEL_ERROR, ...args),
-    fatal: (...args: Array<any>): void => logAtLevel(LOG_LEVEL_FATAL, ...args),
-    logAtLevel,
-    levelEnabled: (level: number): boolean => level >= logLevel(loggerPath),
+  levelEnabled = (level: number): boolean => {
+    return level >= logLevel(this.loggerPath)
   }
+  inputLogProvider: LogProvider = (
+    loggerPath: string,
+    level: Level,
+    ...args: Array<any>
+  ): void => {
+    this.logAtLevel(level, ...args)
+  }
+  trace = (...args: Array<any>): void => {
+    this.logAtLevel(LOG_LEVEL_TRACE, ...args)
+  }
+  debug = (...args: Array<any>): void => {
+    this.logAtLevel(LOG_LEVEL_DEBUG, ...args)
+  }
+  info = (...args: Array<any>): void => {
+    this.logAtLevel(LOG_LEVEL_INFO, ...args)
+  }
+  warn = (...args: Array<any>): void => {
+    this.logAtLevel(LOG_LEVEL_WARN, ...args)
+  }
+  error = (...args: Array<any>): void => {
+    this.logAtLevel(LOG_LEVEL_ERROR, ...args)
+  }
+  fatal = (...args: Array<any>): void => {
+    this.logAtLevel(LOG_LEVEL_FATAL, ...args)
+  }
+}
+
+export type CreateLoggerOptions = {
+  loggerPath: string
+  logProviders?: LogProvider[]
+}
+
+export function createLogger(options: CreateLoggerOptions): Logger {
+  return new LoggerImpl(options)
 }
 
 export function logger(loggerPath = ''): Logger {
   let logger = loggersByPath[loggerPath]
-  if (!logger) logger = loggersByPath[loggerPath] = createLogger(loggerPath)
+  if (!logger) logger = loggersByPath[loggerPath] = createLogger({ loggerPath })
   return logger
 }
 

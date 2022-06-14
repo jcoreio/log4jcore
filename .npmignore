@@ -1,10 +1,11 @@
 **
-!/lib/**/*.js
-!/lib/**/*.js.flow
-!/lib/**/*.d.ts
+!/**/*.js
+!/**/*.js.flow
+!/**/*.d.ts
 !/*.md
 /src
 /test
 /coverage
+/flow-typed
 __tests__
 /.*
