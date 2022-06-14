@@ -3,8 +3,7 @@
 import path from 'path'
 import { execSync } from 'child_process'
 import touch from 'touch'
-import fs from 'fs-extra'
-import chalk from 'chalk'
+import glob from 'glob'
 
 const Promake = require('promake')
 
@@ -34,17 +33,6 @@ const spawn = (command: string, args?: Array<string>, options?: any) => {
   })
 }
 
-function remove(path: string): Promise<void> {
-  // eslint-disable-next-line no-console
-  console.error(
-    chalk.gray('$'),
-    chalk.gray('rm'),
-    chalk.gray('-rf'),
-    chalk.gray(path)
-  ) // eslint-disable-line no-console
-  return fs.remove(path)
-}
-
 rule('node_modules', ['package.json', 'yarn.lock'], async () => {
   await exec('yarn --ignore-scripts')
   await touch('node_modules')
@@ -59,34 +47,45 @@ function env /* ...names */() /* : {[name: string]: ?string} */ {
   }
 }
 
-const cleanTask = task('clean', () => remove(path.resolve('lib'))).description(
-  'remove build output'
-)
+const tsFiles = glob.sync('src/**.ts')
+const jsFlowFiles = glob.sync('src/**.js.flow')
 
-const buildJSTask = task('build:js', ['node_modules'], () =>
+const outJsFiles = tsFiles.map(f =>
+  path.relative('src', f.replace(/\.ts$/, '.js'))
+)
+const outDtsFiles = tsFiles.map(f =>
+  path.relative('src', f.replace(/\.ts$/, '.d.ts'))
+)
+const outJsFlowFiles = jsFlowFiles.map(f => path.relative('src', f))
+
+task('clean', () =>
+  spawn('rm -rf *.js *.d.ts *.js.flow', [], { shell: true })
+).description('remove build output')
+
+rule(outJsFiles, [...tsFiles, 'node_modules'], () =>
   spawn('babel', [
     'src',
     '--out-dir',
-    'lib',
+    '.',
     '--extensions',
     '.ts,.tsx',
     '--source-maps',
     'inline',
   ])
 )
+task('build:js', outJsFiles)
 
-const FLOW_TYPES_FILE_DEST = path.join('lib', 'index.js.flow')
-const FLOW_TYPES_FILE_SRC = path.join('src', 'index.js.flow')
-rule(FLOW_TYPES_FILE_DEST, [FLOW_TYPES_FILE_SRC], () =>
-  fs.copy(FLOW_TYPES_FILE_SRC, FLOW_TYPES_FILE_DEST)
+rule(outJsFlowFiles, jsFlowFiles, () =>
+  spawn(`cp -p src/*.js.flow .`, [], { shell: true })
 )
 
-const buildTypesTask = task('build:types', ['node_modules'], () =>
-  spawn('tsc', ['--emitDeclarationOnly', '-p', 'src'])
+rule(outDtsFiles, [...tsFiles, 'node_modules'], () =>
+  spawn('tsc', ['--emitDeclarationOnly'])
 )
+task('build:types', [...outDtsFiles, ...outJsFlowFiles])
 
 // Just transpile from src to lib
-task('build', [cleanTask, buildJSTask, buildTypesTask, FLOW_TYPES_FILE_DEST])
+task('build', [task('clean'), task('build:js'), task('build:types')])
 
 task('types', 'node_modules', () => spawn('tsc', ['--noEmit'])).description(
   'check files with TypeScript'
