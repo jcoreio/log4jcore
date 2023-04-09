@@ -127,7 +127,6 @@ export function envVarChanged(
   newValue: string | null | undefined = undefined
 ): void {
   if (!varName || ALL_ENV_VARS.has(varName)) {
-    console.log('re-calculating log levels')
     calcedEnvLogLevels = false
     envLogLevels = {}
     logLevelsCache = {}
