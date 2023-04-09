@@ -31,6 +31,8 @@ export const LOG_LEVEL_FATAL = 6
 
 declare export var logLevelToName: { [Level]: string }
 
+declare export function envVarChanged(varName: ?string, newValue: ?string): void
+declare export function resetLogLevels(): void
 declare export function setLogLevel(path: string, level: number): void
 
 /**

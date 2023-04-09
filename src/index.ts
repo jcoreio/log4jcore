@@ -36,6 +36,25 @@ const DEFAULT_LOG_LEVEL = LOG_LEVEL_INFO
 
 const PATH_SEPARATOR = '.'
 
+const TRACE = 'TRACE'
+const DEBUG = 'DEBUG'
+const INFO = 'INFO'
+const WARN = 'WARN'
+const ERROR = 'ERROR'
+const FATAL = 'FATAL'
+
+const LOG_NO_DATE = 'LOG_NO_DATE'
+
+const ALL_ENV_VARS = new Set([
+  TRACE,
+  DEBUG,
+  INFO,
+  WARN,
+  ERROR,
+  FATAL,
+  LOG_NO_DATE,
+])
+
 export const logLevelToName: {
   1: 'TRACE'
   2: 'DEBUG'
@@ -44,12 +63,12 @@ export const logLevelToName: {
   5: 'ERROR'
   6: 'FATAL'
 } = {
-  [LOG_LEVEL_TRACE]: 'TRACE',
-  [LOG_LEVEL_DEBUG]: 'DEBUG',
-  [LOG_LEVEL_INFO]: 'INFO',
-  [LOG_LEVEL_WARN]: 'WARN',
-  [LOG_LEVEL_ERROR]: 'ERROR',
-  [LOG_LEVEL_FATAL]: 'FATAL',
+  [LOG_LEVEL_TRACE]: TRACE,
+  [LOG_LEVEL_DEBUG]: DEBUG,
+  [LOG_LEVEL_INFO]: INFO,
+  [LOG_LEVEL_WARN]: WARN,
+  [LOG_LEVEL_ERROR]: ERROR,
+  [LOG_LEVEL_FATAL]: FATAL,
 }
 
 function assertValidLogLevel(level: Level): void {
@@ -66,8 +85,12 @@ function assertValidLogLevel(level: Level): void {
   }
 }
 
-const configuredLogLevels: { [path: string]: Level } = {}
-const envLogLevels: { [path: string]: Level } = {}
+/** log levels explicitly configured by the user. Highest priority. */
+let configuredLogLevels: { [path: string]: Level } = {}
+/** log levels configured by environment variables. Lowest priority. */
+let envLogLevels: { [path: string]: Level } = {}
+/** calculated levels based on configuredLogLevels and envLogLevels  */
+let logLevelsCache: { [path: string]: Level } = {}
 
 const logLevelAtPath = (path: string): Level | undefined =>
   configuredLogLevels[path] || envLogLevels[path]
@@ -77,7 +100,11 @@ const envVar = (varName: string): string | undefined =>
     ? process.env[varName]
     : undefined // eslint-disable-line no-undef
 
+const calcHasDate = (): boolean => !parseInt(envVar(LOG_NO_DATE) || '')
+let hasDate = calcHasDate()
+
 let calcedEnvLogLevels = false
+
 function calcEnvLogLevels(): void {
   if (calcedEnvLogLevels) return
   // walk log levels from least to most verbose, so that the most verbose setting wins if
@@ -94,11 +121,23 @@ function calcEnvLogLevels(): void {
   calcedEnvLogLevels = true
 }
 
-let logLevelsCache: { [path: string]: Level } = {}
+export function envVarChanged(
+  varName: string | undefined = undefined,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  newValue: string | null | undefined = undefined
+): void {
+  if (!varName || ALL_ENV_VARS.has(varName)) {
+    console.log('re-calculating log levels')
+    calcedEnvLogLevels = false
+    envLogLevels = {}
+    logLevelsCache = {}
+    hasDate = calcHasDate()
+  }
+}
 
 export function resetLogLevels(): void {
   logLevelsCache = {}
-  for (const path in configuredLogLevels) delete configuredLogLevels[path]
+  configuredLogLevels = {}
 }
 
 export function setLogLevel(path: string, level: Level): void {
@@ -134,8 +173,6 @@ function logLevel(path: string): Level {
   }
   return levelForPath
 }
-
-const hasDate = !envVar('LOG_NO_DATE')
 
 export const defaultLogFunctionProvider: LogFunctionProvider = (level: Level) =>
   level >= LOG_LEVEL_ERROR ? console.error : console.log // eslint-disable-line no-console
