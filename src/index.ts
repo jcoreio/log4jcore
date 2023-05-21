@@ -29,12 +29,20 @@ export const LOG_LEVEL_WARN = 4
 export const LOG_LEVEL_ERROR = 5
 export const LOG_LEVEL_FATAL = 6
 
-const LOG_LEVEL_MIN = LOG_LEVEL_TRACE
-const LOG_LEVEL_MAX = LOG_LEVEL_FATAL
-
-const DEFAULT_LOG_LEVEL = LOG_LEVEL_INFO
+// Keep these sorted from most severe to least severe, since logic below
+// depends on that ordering.
+const LOG_LEVELS_MAX_TO_MIN: Level[] = [
+  LOG_LEVEL_FATAL,
+  LOG_LEVEL_ERROR,
+  LOG_LEVEL_WARN,
+  LOG_LEVEL_INFO,
+  LOG_LEVEL_DEBUG,
+  LOG_LEVEL_TRACE,
+]
 
 const PATH_SEPARATOR = '.'
+
+const DEFAULT_LOG_LEVEL = 'DEFAULT_LOG_LEVEL'
 
 const TRACE = 'TRACE'
 const DEBUG = 'DEBUG'
@@ -46,6 +54,7 @@ const FATAL = 'FATAL'
 const LOG_NO_DATE = 'LOG_NO_DATE'
 
 const ALL_ENV_VARS = new Set([
+  DEFAULT_LOG_LEVEL,
   TRACE,
   DEBUG,
   INFO,
@@ -109,17 +118,31 @@ function calcEnvLogLevels(): void {
   if (calcedEnvLogLevels) return
   // walk log levels from least to most verbose, so that the most verbose setting wins if
   // the user sets DEBUG=foo and TRACE=foo, foo will be set to TRACE
-  for (let logLevel = LOG_LEVEL_MAX; logLevel >= LOG_LEVEL_MIN; --logLevel) {
+  for (const logLevel of LOG_LEVELS_MAX_TO_MIN) {
     const envForLevel = envVar((logLevelToName as any)[logLevel])
     if (envForLevel && typeof envForLevel === 'string') {
       const targetsForLevel = envForLevel.split(',').filter(Boolean)
       targetsForLevel.forEach((target: string) => {
-        envLogLevels[target] = logLevel as Level
+        envLogLevels[target] = logLevel
       })
     }
   }
   calcedEnvLogLevels = true
 }
+
+function calcDefaultLogLevel(): Level {
+  const envDefaultLogLevel = envVar(DEFAULT_LOG_LEVEL)
+  if (envDefaultLogLevel) {
+    for (const logLevel of LOG_LEVELS_MAX_TO_MIN) {
+      if (envDefaultLogLevel === (logLevelToName as any)[logLevel]) {
+        return logLevel
+      }
+    }
+  }
+  return LOG_LEVEL_INFO
+}
+
+let defaultLogLevel = calcDefaultLogLevel()
 
 export function envVarChanged(
   varName: string | undefined = undefined,
@@ -131,6 +154,7 @@ export function envVarChanged(
     envLogLevels = {}
     logLevelsCache = {}
     hasDate = calcHasDate()
+    defaultLogLevel = calcDefaultLogLevel()
   }
 }
 
@@ -162,7 +186,7 @@ function calcLogLevel(path: string): Level {
     const levelAtSubPath: Level | undefined = logLevelAtPath(subPath)
     if (levelAtSubPath != null) return levelAtSubPath
   }
-  return DEFAULT_LOG_LEVEL
+  return defaultLogLevel
 }
 
 function logLevel(path: string): Level {
@@ -193,7 +217,9 @@ function formatDate(d: Date): string {
   }
   return `${part(d.getFullYear(), 4)}-${part(d.getMonth() + 1)}-${part(
     d.getDate()
-  )} ${part(d.getHours())}:${part(d.getMinutes())}:${part(d.getSeconds())}`
+  )} ${part(d.getHours())}:${part(d.getMinutes())}:${part(
+    d.getSeconds()
+  )}.${part(d.getMilliseconds(), 3)}`
 }
 
 function defaultLogFormat(loggerPath: string, level: Level): string {

@@ -54,7 +54,7 @@ describe(`defaultLogProvider`, function() {
     const log = logger('test')
     log.info('message', 1)
     expect(logFunctionProvider.args[0][0]).to.match(
-      /^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} test\] INFO$/
+      /^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d{3} test\] INFO$/
     )
   })
   it(`passes remaining args`, async function() {
@@ -210,33 +210,58 @@ describe(`writableLogFunction`, function() {
     log.info('blah')
     log.error({ message: 'test' })
     expect(writable.toString()).to.match(
-      /^\[[-0-9: ]+test\] INFO blah\n\[[-0-9: ]+test\] ERROR \{ message: 'test' \}\n$/
+      /^\[[-0-9:. ]+test\] INFO blah\n\[[-0-9:. ]+test\] ERROR \{ message: 'test' \}\n$/
     )
   })
 })
-it(`sets log levels from env vars`, async function() {
-  this.timeout(5000)
 
+async function runEnvTest(
+  env: Record<string, string>
+): Promise<Record<string, string>> {
   const child = spawn(
     process.execPath,
     [Path.resolve(__dirname, 'envVarEntrypoint.js')],
     {
       stdio: [0, 1, 2, 'ipc'],
-      env: {
-        DEBUG: 'foo',
-        TRACE: 'foo.bar,baz',
-      },
+      env,
     }
   )
   const [message] = await Promise.all([
     emitted(child, 'message'),
     emitted(child, 'close'),
   ])
-  expect(message).to.deep.equal({
+  return message
+}
+
+it(`sets log levels from env vars`, async function() {
+  this.timeout(5000)
+  expect(
+    await runEnvTest({
+      DEBUG: 'foo',
+      TRACE: 'foo.bar,baz',
+    })
+  ).to.deep.equal({
     baz: LOG_LEVEL_TRACE,
     foo: LOG_LEVEL_DEBUG,
     'foo.bar': LOG_LEVEL_TRACE,
     'foo.baz': LOG_LEVEL_DEBUG,
     qux: LOG_LEVEL_INFO,
+  })
+})
+
+it(`overrides the default log level with DEFAULT_LOG_LEVEL`, async function() {
+  this.timeout(5000)
+  expect(
+    await runEnvTest({
+      DEBUG: 'foo',
+      TRACE: 'foo.bar,baz',
+      DEFAULT_LOG_LEVEL: 'ERROR',
+    })
+  ).to.deep.equal({
+    baz: LOG_LEVEL_TRACE,
+    foo: LOG_LEVEL_DEBUG,
+    'foo.bar': LOG_LEVEL_TRACE,
+    'foo.baz': LOG_LEVEL_DEBUG,
+    qux: LOG_LEVEL_ERROR,
   })
 })
