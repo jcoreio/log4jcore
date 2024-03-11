@@ -20,7 +20,7 @@ export type LogProvider = (
   ...args: Array<any>
 ) => void
 
-export type LogFunctionProvider = (level: Level) => Function
+export type LogFunctionProvider = (level: Level) => (...args: any[]) => void
 
 export const LOG_LEVEL_TRACE = 1
 export const LOG_LEVEL_DEBUG = 2
@@ -227,7 +227,9 @@ function defaultLogFormat(loggerPath: string, level: Level): string {
   return `[${date}${loggerPath}] ${(logLevelToName as any)[level]}`
 }
 
-export function createDefaultLogProvider(logFunc: Function): LogProvider {
+export function createDefaultLogProvider(
+  logFunc: (...args: any[]) => void
+): LogProvider {
   return (loggerPath: string, level: Level, ...args: Array<any>): void => {
     logFunc(defaultLogFormat(loggerPath, level), ...args)
   }
@@ -238,7 +240,7 @@ export const defaultLogProvider: LogProvider = (
   level: Level,
   ...args: Array<any>
 ) => {
-  const logFunc: Function = _logFunctionProvider(level)
+  const logFunc: (...args: any[]) => void = _logFunctionProvider(level)
   logFunc(defaultLogFormat(loggerPath, level), ...args)
 }
 
