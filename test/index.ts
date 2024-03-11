@@ -1,8 +1,8 @@
 import { describe, it } from 'mocha'
 import { expect } from 'chai'
 import { spawn } from 'child_process'
-import { pick } from 'lodash/fp'
-import Path from 'path'
+import lodashFp from 'lodash/fp'
+const { pick } = lodashFp
 import emitted from 'p-event'
 import {
   setLogProvider,
@@ -36,7 +36,7 @@ const levels: Level[] = [
   LOG_LEVEL_FATAL,
 ]
 
-describe(`defaultLogProvider`, function() {
+describe(`defaultLogProvider`, function () {
   const logFunctionProvider = sinon.spy()
 
   beforeEach(() => {
@@ -50,19 +50,19 @@ describe(`defaultLogProvider`, function() {
     setLogFunctionProvider(defaultLogFunctionProvider)
   })
 
-  it(`formats date correctly`, function() {
+  it(`formats date correctly`, function () {
     const log = logger('test')
     log.info('message', 1)
     expect(logFunctionProvider.args[0][0]).to.match(
       /^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d{3} test\] INFO$/
     )
   })
-  it(`passes remaining args`, async function() {
+  it(`passes remaining args`, async function () {
     const log = logger('test')
     log.info('message', 1)
     expect(logFunctionProvider.args[0].slice(1)).to.deep.equal(['message', 1])
   })
-  it(`passes remaining args when logging with a function`, async function() {
+  it(`passes remaining args when logging with a function`, async function () {
     const log = logger('test')
     log.info(() => ['message', 1])
     expect(logFunctionProvider.args[0].slice(1)).to.deep.equal(['message', 1])
@@ -102,12 +102,12 @@ describe('log levels', () => {
       ['foo', LOG_LEVEL_FATAL, 'e'],
     ])
   })
-  it(`setLogLevel accepts all valid log levels`, function() {
+  it(`setLogLevel accepts all valid log levels`, function () {
     for (const level of levels) {
       setLogLevel('test', level)
     }
   })
-  it(`setLogLevel rejects invalid log levels`, function() {
+  it(`setLogLevel rejects invalid log levels`, function () {
     for (const level of [LOG_LEVEL_TRACE - 1, LOG_LEVEL_FATAL + 1]) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect(() => setLogLevel('test', level as any)).to.throw(
@@ -115,7 +115,7 @@ describe('log levels', () => {
       )
     }
   })
-  it(`logAtLevel`, function() {
+  it(`logAtLevel`, function () {
     const log = logger('test')
     setLogLevel('test', LOG_LEVEL_TRACE)
     for (const level of levels) {
@@ -124,7 +124,7 @@ describe('log levels', () => {
       expect(logProvider.args).to.deep.equal([['test', level, 'a', 1]])
     }
   })
-  it(`child log paths`, function() {
+  it(`child log paths`, function () {
     const log = logger('foo.bar')
     log.debug('test')
     expect(logProvider.args).to.deep.equal([])
@@ -149,8 +149,8 @@ describe('log levels', () => {
     ])
   })
 })
-describe(`memoryLogProvider`, function() {
-  it(`works`, function() {
+describe(`memoryLogProvider`, function () {
+  it(`works`, function () {
     const provider1 = memoryLogProvider()
     const provider2 = memoryLogProvider()
     const log = createLogger({
@@ -181,8 +181,8 @@ describe(`memoryLogProvider`, function() {
     ])
   })
 })
-describe(`inputLogProvider`, function() {
-  it(`can be passed to another logger`, function() {
+describe(`inputLogProvider`, function () {
+  it(`can be passed to another logger`, function () {
     const provider = memoryLogProvider()
     const downstream = createLogger({
       loggerPath: 'downstream',
@@ -200,8 +200,8 @@ describe(`inputLogProvider`, function() {
     ])
   })
 })
-describe(`writableLogFunction`, function() {
-  it(`works`, function() {
+describe(`writableLogFunction`, function () {
+  it(`works`, function () {
     const writable = new MemoryWritableStream()
     const log = createLogger({
       loggerPath: 'test',
@@ -218,14 +218,10 @@ describe(`writableLogFunction`, function() {
 async function runEnvTest(
   env: Record<string, string>
 ): Promise<Record<string, string>> {
-  const child = spawn(
-    process.execPath,
-    [Path.resolve(__dirname, 'envVarEntrypoint.js')],
-    {
-      stdio: [0, 1, 2, 'ipc'],
-      env,
-    }
-  )
+  const child = spawn(process.execPath, ['test/envVarEntrypoint.js'], {
+    stdio: [0, 1, 2, 'ipc'],
+    env,
+  })
   const [message] = await Promise.all([
     emitted(child, 'message'),
     emitted(child, 'close'),
@@ -233,7 +229,7 @@ async function runEnvTest(
   return message
 }
 
-it(`sets log levels from env vars`, async function() {
+it(`sets log levels from env vars`, async function () {
   this.timeout(5000)
   expect(
     await runEnvTest({
@@ -249,7 +245,7 @@ it(`sets log levels from env vars`, async function() {
   })
 })
 
-it(`overrides the default log level with DEFAULT_LOG_LEVEL`, async function() {
+it(`overrides the default log level with DEFAULT_LOG_LEVEL`, async function () {
   this.timeout(5000)
   expect(
     await runEnvTest({
