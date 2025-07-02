@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 export type Level = 1 | 2 | 3 | 4 | 5 | 6
 
 export interface Logger {
@@ -95,19 +93,20 @@ function assertValidLogLevel(level: Level): void {
 }
 
 /** log levels explicitly configured by the user. Highest priority. */
-let configuredLogLevels: { [path: string]: Level } = {}
+let configuredLogLevels: { [path in string]?: Level } = {}
 /** log levels configured by environment variables. Lowest priority. */
-let envLogLevels: { [path: string]: Level } = {}
+let envLogLevels: { [path in string]?: Level } = {}
 /** calculated levels based on configuredLogLevels and envLogLevels  */
-let logLevelsCache: { [path: string]: Level } = {}
+let logLevelsCache: { [path in string]?: Level } = {}
 
 const logLevelAtPath = (path: string): Level | undefined =>
   configuredLogLevels[path] || envLogLevels[path]
 
 const envVar = (varName: string): string | undefined =>
-  typeof process !== 'undefined' && process.env
-    ? process.env[varName]
-    : undefined // eslint-disable-line no-undef
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  typeof process !== 'undefined' && process.env ?
+    process.env[varName]
+  : undefined
 
 const calcHasDate = (): boolean => !parseInt(envVar(LOG_NO_DATE) || '')
 let hasDate = calcHasDate()
@@ -197,8 +196,9 @@ function logLevel(path: string): Level {
   return levelForPath
 }
 
-export const defaultLogFunctionProvider: LogFunctionProvider = (level: Level) =>
-  level >= LOG_LEVEL_ERROR ? console.error : console.log // eslint-disable-line no-console
+export const defaultLogFunctionProvider: LogFunctionProvider = (
+  level: Level
+) => (level >= LOG_LEVEL_ERROR ? console.error : console.log) // eslint-disable-line no-console
 
 let _logFunctionProvider: LogFunctionProvider = defaultLogFunctionProvider
 
@@ -254,7 +254,7 @@ export function setLogProvider(provider: LogProvider): void {
   _logProvider = provider
 }
 
-const loggersByPath: { [loggerPath: string]: Logger } = {}
+const loggersByPath: { [loggerPath in string]?: Logger } = {}
 
 class LoggerImpl implements Logger {
   loggerPath: string
@@ -273,9 +273,8 @@ class LoggerImpl implements Logger {
         // This allows debug text to only be calculated when the relevant debug level is
         // enabled, e.g. log.trace(() => JSON.stringify(data))
         const resolvedArgs = args[0]()
-        argsToLogger = Array.isArray(resolvedArgs)
-          ? resolvedArgs
-          : [resolvedArgs]
+        argsToLogger =
+          Array.isArray(resolvedArgs) ? resolvedArgs : [resolvedArgs]
       }
       for (const provider of this._logProviders || [_logProvider]) {
         provider(this.loggerPath, level, ...argsToLogger)

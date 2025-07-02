@@ -109,7 +109,6 @@ describe('log levels', () => {
   })
   it(`setLogLevel rejects invalid log levels`, function () {
     for (const level of [LOG_LEVEL_TRACE - 1, LOG_LEVEL_FATAL + 1]) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect(() => setLogLevel('test', level as any)).to.throw(
         `invalid log level: ${level}`
       )

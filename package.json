@@ -25,17 +25,14 @@
   },
   "homepage": "https://github.com/jcoreio/log4jcore#readme",
   "devDependencies": {
-    "@babel/plugin-syntax-flow": "^7.14.5",
-    "@babel/plugin-transform-react-jsx": "^7.14.9",
-    "@babel/register": "^7.23.7",
-    "@jcoreio/eslint-plugin-implicit-dependencies": "^1.0.2",
-    "@jcoreio/toolchain": "^3.9.0",
-    "@jcoreio/toolchain-circle": "^3.9.0",
-    "@jcoreio/toolchain-esnext": "^3.9.0",
-    "@jcoreio/toolchain-flow": "^3.9.0",
-    "@jcoreio/toolchain-mocha": "^3.9.0",
-    "@jcoreio/toolchain-semantic-release": "^3.9.0",
-    "@jcoreio/toolchain-typescript": "^3.9.0",
+    "@babel/register": "^7.27.1",
+    "@jcoreio/toolchain": "^5.5.3",
+    "@jcoreio/toolchain-circle": "^5.5.3",
+    "@jcoreio/toolchain-esnext": "^5.5.3",
+    "@jcoreio/toolchain-flow": "^5.5.3",
+    "@jcoreio/toolchain-mocha": "^5.5.3",
+    "@jcoreio/toolchain-semantic-release": "^5.5.3",
+    "@jcoreio/toolchain-typescript": "^5.5.3",
     "@types/chai": "^4.3.5",
     "@types/fs-extra": "^8.0.1",
     "@types/glob": "^7.2.0",
@@ -43,28 +40,24 @@
     "@types/mocha": "^10.0.1",
     "@types/sinon": "^10.0.2",
     "@types/touch": "^3.1.1",
-    "@typescript-eslint/eslint-plugin": "^5.60.0",
-    "@typescript-eslint/parser": "^5.60.0",
     "chai": "^4.3.7",
     "chalk": "^2.4.2",
-    "copy": "^0.3.2",
-    "cross-env": "^5.2.0",
     "defaultenv": "^4.0.0",
-    "eslint": "^8.43.0",
+    "eslint": "^9.17.0",
     "eslint-config-prettier": "^6.5.0",
-    "eslint-plugin-flowtype": "^8.0.3",
     "flow-bin": "^0.180.0",
     "fs-extra": "^8.1.0",
     "glob": "^8.0.3",
+    "globals": "^16.0.0",
+    "lint-staged": "^15.2.2",
     "lodash": "^4.17.21",
     "mocha": "^10.2.0",
+    "nyc": "^15.1.0",
     "p-event": "^4.2.0",
-    "promisify-child-process": "^3.1.1",
-    "rimraf": "^2.6.0",
+    "prettier": "^3.4.2",
     "semver": "^6.3.0",
     "sinon": "^11.1.1",
     "touch": "^3.1.0",
-    "ts-node": "^8.6.2",
     "typescript": "^5.1.0"
   },
   "main": "dist/index.js",
@@ -73,19 +66,28 @@
   "exports": {
     "./package.json": "./package.json",
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": {
+        "import": "./dist/index.d.mts",
+        "default": "./dist/index.d.ts"
+      },
       "import": "./dist/index.mjs",
       "default": "./dist/index.js"
     },
     "./*": {
-      "types": "./dist/*.d.ts",
+      "types": {
+        "import": "./dist/*.d.mts",
+        "default": "./dist/*.d.ts"
+      },
       "import": "./dist/*.mjs",
       "default": "./dist/*.js"
     }
   },
   "sideEffects": false,
-  "packageManager": "pnpm@8.11.0",
+  "packageManager": "pnpm@10.6.5",
   "dependencies": {
-    "@babel/runtime": "^7.18.6"
+    "@babel/runtime": "^7.26.0"
+  },
+  "@jcoreio/toolchain": {
+    "migratedVersion": "5.5.3"
   }
 }
