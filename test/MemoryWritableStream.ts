@@ -4,7 +4,6 @@ export default class MemoryWritableStream extends Writable {
   _chunks: Buffer[] = []
 
   _write(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     chunk: any,
     encoding: BufferEncoding,
     callback: (err?: Error) => unknown
