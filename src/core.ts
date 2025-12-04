@@ -157,7 +157,7 @@ let defaultLogLevel = calcDefaultLogLevel()
 
 export function envVarChanged(
   varName: string | undefined = undefined,
-   
+
   newValue: string | null | undefined = undefined
 ): void {
   selfLog?.trace(
