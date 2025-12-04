@@ -147,6 +147,27 @@ describe('log levels', () => {
       ['foo.bar', LOG_LEVEL_DEBUG, 'test4'],
     ])
   })
+  it('self logging', function () {
+    setLogLevel('log4jcore', LOG_LEVEL_TRACE)
+    setLogLevel('foo', LOG_LEVEL_DEBUG)
+    logger('foo.bar').debug('a')
+    logger('foo').debug('b')
+    logger('blah').debug('c')
+    resetLogLevels()
+    expect(logProvider.args).to.deep.equal([
+      ['log4jcore', 1, 'setLogLevel("foo", 2 (DEBUG))'],
+      [
+        'log4jcore',
+        1,
+        'calcLogLevel("foo.bar"): DEBUG (at parent path: "foo", configured)',
+      ],
+      ['foo.bar', 2, 'a'],
+      ['log4jcore', 1, 'calcLogLevel("foo"): DEBUG (exact path, configured)'],
+      ['foo', 2, 'b'],
+      ['log4jcore', 1, 'calcLogLevel("blah"): INFO (default)'],
+      ['log4jcore', 1, 'resetLogLevels()'],
+    ])
+  })
 })
 describe(`memoryLogProvider`, function () {
   it(`works`, function () {

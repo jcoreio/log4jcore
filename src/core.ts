@@ -1,3 +1,6 @@
+// eslint-disable-next-line prefer-const
+let selfLog: Logger | undefined
+
 export type Level = 1 | 2 | 3 | 4 | 5 | 6
 
 export interface Logger {
@@ -127,6 +130,15 @@ function calcEnvLogLevels(): void {
     }
   }
   calcedEnvLogLevels = true
+  if (selfLog?.levelEnabled(LOG_LEVEL_TRACE)) {
+    selfLog.trace('calcEnvLogLevels():')
+    for (const key of Object.keys(envLogLevels).sort()) {
+      if (envLogLevels[key] == null) continue
+      selfLog.trace(
+        `  ${JSON.stringify(key)}: ${logLevelToName[envLogLevels[key]]}`
+      )
+    }
+  }
 }
 
 function calcDefaultLogLevel(): Level {
@@ -145,9 +157,13 @@ let defaultLogLevel = calcDefaultLogLevel()
 
 export function envVarChanged(
   varName: string | undefined = undefined,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   newValue: string | null | undefined = undefined
 ): void {
+  selfLog?.trace(
+    () =>
+      `envVarChanged(${JSON.stringify(varName)}, ${JSON.stringify(newValue)})`
+  )
   if (!varName || ALL_ENV_VARS.has(varName)) {
     calcedEnvLogLevels = false
     envLogLevels = {}
@@ -158,11 +174,16 @@ export function envVarChanged(
 }
 
 export function resetLogLevels(): void {
+  selfLog?.trace('resetLogLevels()')
   logLevelsCache = {}
   configuredLogLevels = {}
 }
 
 export function setLogLevel(path: string, level: Level): void {
+  selfLog?.trace(
+    () =>
+      `setLogLevel(${JSON.stringify(path)}, ${level} (${logLevelToName[level]}))`
+  )
   assertValidLogLevel(level)
   if (level !== configuredLogLevels[path]) {
     configuredLogLevels[path] = level
@@ -173,8 +194,15 @@ export function setLogLevel(path: string, level: Level): void {
 
 function calcLogLevel(path: string): Level {
   calcEnvLogLevels()
+  const log = path === 'log4jcore' ? undefined : selfLog
   const levelAtExactPath: Level | undefined = logLevelAtPath(path)
-  if (levelAtExactPath != null) return levelAtExactPath
+  if (levelAtExactPath != null) {
+    log?.trace(
+      () =>
+        `calcLogLevel(${JSON.stringify(path)}): ${logLevelToName[levelAtExactPath]} (exact path, ${configuredLogLevels[path] ? 'configured' : 'env'})`
+    )
+    return levelAtExactPath
+  }
   const exactPathSplit = path.split(PATH_SEPARATOR)
   for (
     let compareLen = exactPathSplit.length - 1;
@@ -183,8 +211,19 @@ function calcLogLevel(path: string): Level {
   ) {
     const subPath = exactPathSplit.slice(0, compareLen).join(PATH_SEPARATOR)
     const levelAtSubPath: Level | undefined = logLevelAtPath(subPath)
-    if (levelAtSubPath != null) return levelAtSubPath
+    if (levelAtSubPath != null) {
+      log?.trace(
+        () =>
+          `calcLogLevel(${JSON.stringify(path)}): ${logLevelToName[levelAtSubPath]} (at parent path: ${JSON.stringify(subPath)}, ${configuredLogLevels[subPath] ? 'configured' : 'env'})`
+      )
+      return levelAtSubPath
+    }
   }
+  log?.trace(
+    () =>
+      `calcLogLevel(${JSON.stringify(path)}): ${logLevelToName[defaultLogLevel]} (default)`
+  )
+
   return defaultLogLevel
 }
 
@@ -208,6 +247,7 @@ let _logFunctionProvider: LogFunctionProvider = defaultLogFunctionProvider
  * @param provider function that returns the log function based on the message's log level
  */
 export function setLogFunctionProvider(provider: LogFunctionProvider): void {
+  selfLog?.trace('setLogFunctionProvider(', provider, ')')
   _logFunctionProvider = provider
 }
 
@@ -251,6 +291,7 @@ let _logProvider: LogProvider = defaultLogProvider
  * @param provider
  */
 export function setLogProvider(provider: LogProvider): void {
+  selfLog?.trace('setLogProvider(', provider, ')')
   _logProvider = provider
 }
 
@@ -325,3 +366,5 @@ export function logger(loggerPath = ''): Logger {
   if (!logger) logger = loggersByPath[loggerPath] = createLogger({ loggerPath })
   return logger
 }
+
+selfLog = logger('log4jcore')
