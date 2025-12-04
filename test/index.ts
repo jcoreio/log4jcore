@@ -21,7 +21,7 @@ import {
   Level,
   createLogger,
   createDefaultLogProvider,
-} from '../src'
+} from '../src/index'
 import sinon from 'sinon'
 import memoryLogProvider from '../src/memoryLogProvider'
 import writableLogFunction from '../src/writableLogFunction'

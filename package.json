@@ -25,14 +25,14 @@
   },
   "homepage": "https://github.com/jcoreio/log4jcore#readme",
   "devDependencies": {
-    "@babel/register": "^7.27.1",
-    "@jcoreio/toolchain": "^5.5.3",
-    "@jcoreio/toolchain-circle": "^5.5.3",
-    "@jcoreio/toolchain-esnext": "^5.5.3",
-    "@jcoreio/toolchain-flow": "^5.5.3",
-    "@jcoreio/toolchain-mocha": "^5.5.3",
-    "@jcoreio/toolchain-semantic-release": "^5.5.3",
-    "@jcoreio/toolchain-typescript": "^5.5.3",
+    "@babel/register": "^7.28.3",
+    "@jcoreio/toolchain": "^5.8.6",
+    "@jcoreio/toolchain-circle": "^5.8.6",
+    "@jcoreio/toolchain-esnext": "^5.8.6",
+    "@jcoreio/toolchain-flow": "^5.8.6",
+    "@jcoreio/toolchain-mocha": "^5.8.6",
+    "@jcoreio/toolchain-semantic-release": "^5.8.6",
+    "@jcoreio/toolchain-typescript": "^5.8.6",
     "@types/chai": "^4.3.5",
     "@types/fs-extra": "^8.0.1",
     "@types/glob": "^7.2.0",
@@ -73,13 +73,21 @@
       "import": "./dist/index.mjs",
       "default": "./dist/index.js"
     },
-    "./*": {
+    "./memoryLogProvider": {
       "types": {
-        "import": "./dist/*.d.mts",
-        "default": "./dist/*.d.ts"
+        "import": "./dist/memoryLogProvider.d.mts",
+        "default": "./dist/memoryLogProvider.d.ts"
       },
-      "import": "./dist/*.mjs",
-      "default": "./dist/*.js"
+      "import": "./dist/memoryLogProvider.mjs",
+      "default": "./dist/memoryLogProvider.js"
+    },
+    "./writableLogFunction": {
+      "types": {
+        "import": "./dist/writableLogFunction.d.mts",
+        "default": "./dist/writableLogFunction.d.ts"
+      },
+      "import": "./dist/writableLogFunction.mjs",
+      "default": "./dist/writableLogFunction.js"
     }
   },
   "sideEffects": false,
@@ -88,6 +96,6 @@
     "@babel/runtime": "^7.26.0"
   },
   "@jcoreio/toolchain": {
-    "migratedVersion": "5.5.3"
+    "migratedVersion": "5.8.6"
   }
 }
