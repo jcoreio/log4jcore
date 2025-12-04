@@ -7,7 +7,7 @@ import {
   LOG_LEVEL_WARN,
   LOG_LEVEL_ERROR,
   LOG_LEVEL_FATAL,
-} from '../src'
+} from '../src/index'
 
 function getLevel(path: string): Level | null {
   const log = logger(path)
