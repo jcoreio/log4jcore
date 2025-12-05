@@ -26,6 +26,7 @@ import sinon from 'sinon'
 import memoryLogProvider from '../src/memoryLogProvider'
 import writableLogFunction from '../src/writableLogFunction'
 import MemoryWritableStream from './MemoryWritableStream'
+import { envVarChanged } from '../src/core.ts'
 
 const levels: Level[] = [
   LOG_LEVEL_TRACE,
@@ -36,14 +37,23 @@ const levels: Level[] = [
   LOG_LEVEL_FATAL,
 ]
 
+beforeEach(() => {
+  delete process.env.FATAL
+  delete process.env.ERROR
+  delete process.env.WARN
+  delete process.env.INFO
+  delete process.env.DEBUG
+  delete process.env.TRACE
+  resetLogLevels()
+})
+
 describe(`defaultLogProvider`, function () {
   const logFunctionProvider = sinon.spy()
 
   beforeEach(() => {
-    resetLogLevels()
-    logFunctionProvider.resetHistory()
     setLogProvider(defaultLogProvider)
     setLogFunctionProvider(() => logFunctionProvider)
+    logFunctionProvider.resetHistory()
   })
 
   afterEach(() => {
@@ -72,7 +82,6 @@ describe('log levels', () => {
   const logProvider = sinon.spy()
 
   beforeEach(() => {
-    resetLogLevels()
     logProvider.resetHistory()
     setLogProvider(logProvider)
   })
@@ -136,6 +145,14 @@ describe('log levels', () => {
     ])
 
     logProvider.resetHistory()
+    logger('foo/bar').debug('test3')
+    logger('foo:bar').debug('test4')
+    expect(logProvider.args).to.deep.equal([
+      ['foo/bar', LOG_LEVEL_DEBUG, 'test3'],
+      ['foo:bar', LOG_LEVEL_DEBUG, 'test4'],
+    ])
+
+    logProvider.resetHistory()
     setLogLevel('foo', LOG_LEVEL_INFO)
     log.debug('test3')
     expect(logProvider.args).to.deep.equal([])
@@ -145,6 +162,113 @@ describe('log levels', () => {
     log.debug('test4')
     expect(logProvider.args).to.deep.equal([
       ['foo.bar', LOG_LEVEL_DEBUG, 'test4'],
+    ])
+  })
+  it(`patterns`, function () {
+    setLogLevel('foo/*', LOG_LEVEL_TRACE)
+    setLogLevel('foo', LOG_LEVEL_DEBUG)
+    logger('foo/bar').trace('test')
+    logger('foo').trace('test2')
+    logger('foo').debug('test3')
+    expect(logProvider.args).to.deep.equal([
+      ['foo/bar', LOG_LEVEL_TRACE, 'test'],
+      ['foo', LOG_LEVEL_DEBUG, 'test3'],
+    ])
+
+    logProvider.resetHistory()
+    setLogLevel('foo/*', LOG_LEVEL_DEBUG)
+    setLogLevel('bar/*', LOG_LEVEL_TRACE)
+    setLogLevel('qux/*', LOG_LEVEL_TRACE)
+    logger('foo/bar').trace('test')
+    logger('bar/baz').trace('test2')
+    logger('qux/glorm').trace('test3')
+    expect(logProvider.args).to.deep.equal([
+      ['bar/baz', LOG_LEVEL_TRACE, 'test2'],
+      ['qux/glorm', LOG_LEVEL_TRACE, 'test3'],
+    ])
+
+    logProvider.resetHistory()
+    setLogLevel('*', LOG_LEVEL_TRACE)
+    logger('foo/bar').trace('test')
+    expect(logProvider.args).to.deep.equal([
+      [
+        'log4jcore',
+        LOG_LEVEL_TRACE,
+        'calcLogLevel("foo/bar"): TRACE (pattern, configured)',
+      ],
+      ['foo/bar', LOG_LEVEL_TRACE, 'test'],
+    ])
+
+    resetLogLevels()
+    logProvider.resetHistory()
+    setLogLevel('foo/*', LOG_LEVEL_DEBUG)
+    setLogLevel('foo', LOG_LEVEL_TRACE)
+    logger('foo/bar').trace('test')
+    expect(logProvider.args).to.deep.equal([
+      ['foo/bar', LOG_LEVEL_TRACE, 'test'],
+    ])
+  })
+  it(`env patterns`, function () {
+    process.env.TRACE = 'foo/*'
+    process.env.DEBUG = 'foo'
+    envVarChanged('TRACE')
+    envVarChanged('DEBUG')
+    logger('foo/bar').trace('test')
+    logger('foo').trace('test2')
+    logger('foo').debug('test3')
+    expect(logProvider.args).to.deep.equal([
+      ['foo/bar', LOG_LEVEL_TRACE, 'test'],
+      ['foo', LOG_LEVEL_DEBUG, 'test3'],
+    ])
+
+    logProvider.resetHistory()
+    process.env.DEBUG = 'foo/*'
+    process.env.TRACE = 'bar/*,qux/*'
+    envVarChanged('DEBUG')
+    envVarChanged('TRACE')
+    logger('foo/bar').trace('test')
+    logger('bar/baz').trace('test2')
+    logger('qux/glorm').trace('test3')
+    expect(logProvider.args).to.deep.equal([
+      ['bar/baz', LOG_LEVEL_TRACE, 'test2'],
+      ['qux/glorm', LOG_LEVEL_TRACE, 'test3'],
+    ])
+
+    logProvider.resetHistory()
+    process.env.TRACE = '*'
+    envVarChanged('TRACE')
+    logger('foo/bar').trace('test')
+    expect(logProvider.args).to.deep.equal([
+      ['log4jcore', LOG_LEVEL_TRACE, 'calcEnvLogLevels():'],
+      ['log4jcore', LOG_LEVEL_TRACE, '  DEBUG: /^(foo\\/.*)$/'],
+      ['log4jcore', LOG_LEVEL_TRACE, '  TRACE: /^(.*)$/'],
+      [
+        'log4jcore',
+        LOG_LEVEL_TRACE,
+        'calcLogLevel("foo/bar"): TRACE (pattern, env)',
+      ],
+      ['foo/bar', LOG_LEVEL_TRACE, 'test'],
+    ])
+
+    process.env.TRACE = 'foo'
+    process.env.DEBUG = 'foo/*'
+    resetLogLevels()
+    logProvider.resetHistory()
+    logger('foo/bar').trace('test')
+    expect(logProvider.args).to.deep.equal([
+      ['foo/bar', LOG_LEVEL_TRACE, 'test'],
+    ])
+
+    process.env.TRACE = ''
+    process.env.DEBUG = 'foo/*'
+    process.env.INFO = 'foo,foo/qux'
+    resetLogLevels()
+    logProvider.resetHistory()
+    logger('foo/bar').debug('test')
+    logger('foo/qux').debug('test2')
+    expect(logProvider.args).to.deep.equal([
+      ['foo/bar', LOG_LEVEL_DEBUG, 'test'],
+      ['foo/qux', LOG_LEVEL_DEBUG, 'test2'],
     ])
   })
   it('self logging', function () {

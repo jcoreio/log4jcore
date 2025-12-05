@@ -41,7 +41,7 @@ const LOG_LEVELS_MAX_TO_MIN: Level[] = [
   LOG_LEVEL_TRACE,
 ]
 
-const PATH_SEPARATOR = '.'
+const LOG_LEVELS_MIN_TO_MAX = [...LOG_LEVELS_MAX_TO_MIN].reverse()
 
 const DEFAULT_LOG_LEVEL = 'DEFAULT_LOG_LEVEL'
 
@@ -97,8 +97,16 @@ function assertValidLogLevel(level: Level): void {
 
 /** log levels explicitly configured by the user. Highest priority. */
 let configuredLogLevels: { [path in string]?: Level } = {}
+/** log level patterns configured by the user. Highest priority. */
+let configuredPatterns = {
+  byPattern: new Map<string, Level>(),
+  byLevel: new Map<Level, Set<string>>(),
+  regexes: new Map<Level, RegExp>(),
+}
 /** log levels configured by environment variables. Lowest priority. */
 let envLogLevels: { [path in string]?: Level } = {}
+/** log level patterns configured by environment variables. Lowest priority. */
+let envLogLevelPatterns = new Map<Level, RegExp>()
 /** calculated levels based on configuredLogLevels and envLogLevels  */
 let logLevelsCache: { [path in string]?: Level } = {}
 
@@ -114,6 +122,16 @@ const envVar = (varName: string): string | undefined =>
 const calcHasDate = (): boolean => !parseInt(envVar(LOG_NO_DATE) || '')
 let hasDate = calcHasDate()
 
+function normalizePath(path: string) {
+  return path.replace(/[:/]/g, '.')
+}
+
+function makeRegExp(patterns: string[]) {
+  return new RegExp(
+    `^(${patterns.map((pattern) => pattern.replace(/[/\-\\^$+?.()|[\]{}]/g, '\\$&').replace(/\*/g, '.*')).join('|')})$`
+  )
+}
+
 let calcedEnvLogLevels = false
 
 function calcEnvLogLevels(): void {
@@ -122,11 +140,19 @@ function calcEnvLogLevels(): void {
   // the user sets DEBUG=foo and TRACE=foo, foo will be set to TRACE
   for (const logLevel of LOG_LEVELS_MAX_TO_MIN) {
     const envForLevel = envVar((logLevelToName as any)[logLevel])
+    const patterns: string[] = []
     if (envForLevel && typeof envForLevel === 'string') {
       const targetsForLevel = envForLevel.split(',').filter(Boolean)
       targetsForLevel.forEach((target: string) => {
-        envLogLevels[target] = logLevel
+        if (target.includes('*')) {
+          patterns.push(target)
+        } else {
+          envLogLevels[normalizePath(target)] = logLevel
+        }
       })
+    }
+    if (patterns.length) {
+      envLogLevelPatterns.set(logLevel, makeRegExp(patterns))
     }
   }
   calcedEnvLogLevels = true
@@ -137,6 +163,9 @@ function calcEnvLogLevels(): void {
       selfLog.trace(
         `  ${JSON.stringify(key)}: ${logLevelToName[envLogLevels[key]]}`
       )
+    }
+    for (const [logLevel, pattern] of envLogLevelPatterns.entries()) {
+      selfLog.trace(`  ${logLevelToName[logLevel]}: ${pattern}`)
     }
   }
 }
@@ -167,6 +196,7 @@ export function envVarChanged(
   if (!varName || ALL_ENV_VARS.has(varName)) {
     calcedEnvLogLevels = false
     envLogLevels = {}
+    envLogLevelPatterns = new Map()
     logLevelsCache = {}
     hasDate = calcHasDate()
     defaultLogLevel = calcDefaultLogLevel()
@@ -176,7 +206,15 @@ export function envVarChanged(
 export function resetLogLevels(): void {
   selfLog?.trace('resetLogLevels()')
   logLevelsCache = {}
+  calcedEnvLogLevels = false
+  envLogLevels = {}
+  envLogLevelPatterns = new Map()
   configuredLogLevels = {}
+  configuredPatterns = {
+    byPattern: new Map<string, Level>(),
+    byLevel: new Map<Level, Set<string>>(),
+    regexes: new Map<Level, RegExp>(),
+  }
 }
 
 export function setLogLevel(path: string, level: Level): void {
@@ -185,45 +223,97 @@ export function setLogLevel(path: string, level: Level): void {
       `setLogLevel(${JSON.stringify(path)}, ${level} (${logLevelToName[level]}))`
   )
   assertValidLogLevel(level)
-  if (level !== configuredLogLevels[path]) {
-    configuredLogLevels[path] = level
-    // Bust the cache
-    logLevelsCache = {}
+  if (path.includes('*')) {
+    const oldLevel = configuredPatterns.byPattern.get(path)
+    if (oldLevel !== level) {
+      const oldLevelPatterns =
+        oldLevel != null ? configuredPatterns.byLevel.get(oldLevel) : undefined
+      if (oldLevel != null && oldLevel !== level && oldLevelPatterns) {
+        oldLevelPatterns.delete(path)
+        if (oldLevelPatterns.size) {
+          configuredPatterns.regexes.set(
+            oldLevel,
+            makeRegExp([...oldLevelPatterns])
+          )
+        } else {
+          configuredPatterns.byLevel.delete(oldLevel)
+          configuredPatterns.regexes.delete(oldLevel)
+        }
+      }
+      configuredPatterns.byPattern.set(path, level)
+      let levelPatterns = configuredPatterns.byLevel.get(level)
+      if (!levelPatterns)
+        configuredPatterns.byLevel.set(level, (levelPatterns = new Set()))
+      levelPatterns.add(path)
+      configuredPatterns.regexes.set(level, makeRegExp([...levelPatterns]))
+      // Bust the cache
+      logLevelsCache = {}
+    }
+  } else {
+    const normalized = normalizePath(path)
+    if (level !== configuredLogLevels[normalized]) {
+      configuredLogLevels[normalized] = level
+      // Bust the cache
+      logLevelsCache = {}
+    }
   }
 }
 
 function calcLogLevel(path: string): Level {
   calcEnvLogLevels()
+
   const log = path === 'log4jcore' ? undefined : selfLog
-  const levelAtExactPath: Level | undefined = logLevelAtPath(path)
-  if (levelAtExactPath != null) {
-    log?.trace(
-      () =>
-        `calcLogLevel(${JSON.stringify(path)}): ${logLevelToName[levelAtExactPath]} (exact path, ${configuredLogLevels[path] ? 'configured' : 'env'})`
-    )
-    return levelAtExactPath
-  }
-  const exactPathSplit = path.split(PATH_SEPARATOR)
-  for (
-    let compareLen = exactPathSplit.length - 1;
-    compareLen >= 0;
-    --compareLen
-  ) {
-    const subPath = exactPathSplit.slice(0, compareLen).join(PATH_SEPARATOR)
-    const levelAtSubPath: Level | undefined = logLevelAtPath(subPath)
-    if (levelAtSubPath != null) {
-      log?.trace(
-        () =>
-          `calcLogLevel(${JSON.stringify(path)}): ${logLevelToName[levelAtSubPath]} (at parent path: ${JSON.stringify(subPath)}, ${configuredLogLevels[subPath] ? 'configured' : 'env'})`
-      )
-      return levelAtSubPath
+  const patternLevel = LOG_LEVELS_MIN_TO_MAX.find(
+    (logLevel) =>
+      configuredPatterns.regexes.get(logLevel)?.test(path) ||
+      envLogLevelPatterns.get(logLevel)?.test(path)
+  )
+
+  if (patternLevel !== LOG_LEVELS_MIN_TO_MAX[0]) {
+    const normPath = normalizePath(path)
+    const levelAtExactPath: Level | undefined = logLevelAtPath(normPath)
+    if (levelAtExactPath != null) {
+      if (patternLevel == null || levelAtExactPath <= patternLevel) {
+        log?.trace(
+          () =>
+            `calcLogLevel(${JSON.stringify(path)}): ${logLevelToName[levelAtExactPath]} (exact path, ${configuredLogLevels[path] ? 'configured' : 'env'})`
+        )
+        return levelAtExactPath
+      }
+    } else {
+      const exactPathSplit = normPath.split('.')
+      for (
+        let compareLen = exactPathSplit.length - 1;
+        compareLen >= 0;
+        --compareLen
+      ) {
+        const subPath = exactPathSplit.slice(0, compareLen).join('.')
+        const levelAtSubPath: Level | undefined = logLevelAtPath(subPath)
+        if (levelAtSubPath != null) {
+          if (patternLevel == null || levelAtSubPath <= patternLevel) {
+            log?.trace(
+              () =>
+                `calcLogLevel(${JSON.stringify(path)}): ${logLevelToName[levelAtSubPath]} (at parent path: ${JSON.stringify(subPath)}, ${configuredLogLevels[subPath] ? 'configured' : 'env'})`
+            )
+            return levelAtSubPath
+          }
+        }
+      }
     }
   }
+
+  if (patternLevel != null) {
+    log?.trace(
+      () =>
+        `calcLogLevel(${JSON.stringify(path)}): ${logLevelToName[patternLevel]} (pattern, ${configuredPatterns.regexes.get(patternLevel) != null ? 'configured' : 'env'})`
+    )
+    return patternLevel
+  }
+
   log?.trace(
     () =>
       `calcLogLevel(${JSON.stringify(path)}): ${logLevelToName[defaultLogLevel]} (default)`
   )
-
   return defaultLogLevel
 }
 
